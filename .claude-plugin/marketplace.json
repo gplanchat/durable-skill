@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "durable-skill",
+  "description": "Writing workflows, activities and Nexus operations with gplanchat/durable.",
+  "owner": {
+    "name": "Grégory Planchat",
+    "url": "https://github.com/gplanchat"
+  },
+  "plugins": [
+    {
+      "name": "durable",
+      "description": "Write Durable workflows, activities and Nexus operations in PHP — the shapes, the attributes, and the traps that cost a production incident.",
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}
