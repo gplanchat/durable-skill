@@ -48,19 +48,29 @@ what you install:
 | Learning, or unit tests only | `composer require gplanchat/durable` |
 | Symfony | `composer require gplanchat/durable-bundle` |
 | Sylius | `composer require gplanchat/durable-plugin` |
-| Laravel, one SQL database | `composer require gplanchat/durable gplanchat/durable-bridge-illuminate` |
-| Magento 2.4 / Mage-OS | `composer require gplanchat/durable-magento:dev-main` |
+| Laravel | `composer require gplanchat/durable-laravel` |
+| Magento 2.4 / Mage-OS | `composer require gplanchat/durable-magento` |
 
 Add `gplanchat/durable-bridge-temporal` for a Temporal cluster, or
 `gplanchat/durable-bridge-dbal` for one SQL database.
 
-⚠ **The suite is in alpha, and two packages have no tagged version yet.**
-`gplanchat/durable` and the bridges publish `v0.1.0-alpha*`, so a project on the default
-`minimum-stability: stable` needs `"minimum-stability": "alpha"` and
-`"prefer-stable": true`, or an explicit `:^0.1.0@alpha` on each line.
-`gplanchat/durable-laravel` and `gplanchat/durable-magento` are on Packagist with
-**`dev-main` only** — their first version comes from the next tag. The canonical table,
-kept current, is on [durable.rocks](https://durable.rocks).
+⚠ **The suite is in alpha, and Composer refuses an alpha by default.** Every package
+publishes `v0.1.0-alpha8`, one tag for the whole suite. On a project left at
+`minimum-stability: stable` the commands above fail — and the message Composer prints
+does not name stability, it says the package has no matching version, which reads like a
+package that does not exist. Either spell the constraint out on each line:
+
+```bash
+composer require gplanchat/durable-bundle:^0.1.0@alpha
+```
+
+or set it once in the project's own `composer.json`:
+
+```json
+{ "minimum-stability": "alpha", "prefer-stable": true }
+```
+
+The canonical table, kept current, is on [durable.rocks](https://durable.rocks).
 
 ## License
 
