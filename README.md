@@ -9,6 +9,10 @@ and the handful of traps that cost a production incident: an activity name writt
 string, a timer without a summary, a Nexus parameter renamed on one side only, an
 execution started inline in a web request.
 
+It also knows how to **migrate** existing code — `gplanchat/durable-rector` for the
+rewriting, and what to finish by hand afterwards, which is the part that decides whether
+a migration is done or merely quiet.
+
 ## Install
 
 ```
@@ -29,6 +33,7 @@ To install it by hand instead, copy `skills/durable/` into `~/.claude/skills/dur
 | `skills/durable/references/workflows.md` | Signals, updates, child workflows, timers, versioning, `continueAsNew`, starting an execution |
 | `skills/durable/references/activities.md` | Options, retry policy, the four timeouts, writing an activity that survives a retry |
 | `skills/durable/references/nexus.md` | Contracts, why a contract splits in two, the payload trap |
+| `skills/durable/references/migrations.md` | Rector sets for coming off the Temporal SDK or moving between Durable versions — and the five things the rules refuse to guess |
 
 The references are loaded on demand, so a task about activities does not pay for the
 Nexus reference.

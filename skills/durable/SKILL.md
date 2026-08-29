@@ -10,7 +10,9 @@ description: >
   "activityStub", "childWorkflowStub", "nexusStub", "WorkflowEnvironment",
   "continueAsNew", "durable-bundle", "durable-plugin", "durable-magento",
   "durable-laravel", and on questions about determinism, replay, retries or
-  compensation in PHP durable execution.
+  compensation in PHP durable execution. Also covers **migrating** existing code with
+  `gplanchat/durable-rector` — the `temporal-sdk` and `durable-upgrade` sets — and
+  finishing by hand what the rules deliberately leave alone.
 ---
 
 # Writing Durable code
@@ -116,6 +118,10 @@ Read the one you need, not all three:
   non-retryable exceptions, heartbeats, cancellation.
 - `references/nexus.md` — Nexus contracts, why a contract splits in two when a
   workflow fulfils an operation, and the payload trap that fails silently.
+- `references/migrations.md` — **read this before touching existing code.** Coming off
+  the Temporal PHP SDK, or moving from one Durable version to the next: `gplanchat/durable-rector`
+  does the rewriting, and the reference is mostly about the five things its rules refuse
+  to guess — two of which fail silently, on a server that is already running.
 
 ## Before you hand the code back
 
