@@ -3,35 +3,65 @@
 ## Signals and updates
 
 A **signal** is fire-and-forget from the outside; an **update** expects an answer.
-Both are declared on a contract and handled inside the workflow:
+There is no `waitSignal()`: a handler mutates workflow state, and `await()` observes it
+through a condition. Declare the handler on the **workflow class** and pair it with a
+small private method that waits and consumes:
 
 ```php
-interface CheckoutSignals
+#[AsWorkflow('Checkout')]
+final class CheckoutWorkflow
 {
-    #[AsSignalMethod('approved')]        // a BackedEnum works too
-    public function approved(string $by): void;
+    /** @var list<array<string, mixed>> */
+    private array $approvals = [];
 
-    #[AsUpdateMethod('address')]
-    public function changeAddress(string $address): bool;
+    public function __construct(private readonly WorkflowEnvironment $environment) {}
+
+    #[AsSignalMethod(OrderSignal::Approve)]      // a plain string works too
+    public function approve(array $payload): void
+    {
+        $this->approvals[] = $payload;
+    }
+
+    #[AsWorkflowMethod]
+    public function run(string $orderId): string
+    {
+        $approval = $this->waitApproval(Duration::hours(48));
+
+        return $this->ship($orderId, $approval['by']);
+    }
+
+    /** @return array<string, mixed> */
+    private function waitApproval(Duration $deadline): array
+    {
+        // Without a deadline this waits forever — legitimate for a workflow, and a bug
+        // if you meant "give up after a while". An elapsed one raises DeadlineExceededException.
+        $this->environment->await(fn(): bool => [] !== $this->approvals, $deadline);
+
+        return array_shift($this->approvals);
+    }
 }
 ```
 
-```php
-#[AsWorkflowMethod]
-public function run(string $orderId): string
-{
-    $approved = false;
-    $this->environment->onSignal('approved', function (string $by) use (&$approved): void {
-        $approved = true;
-    });
+Because the deliveries are workflow state, a workflow that waits for the same signal three
+times keeps three entries and consumes them at its own pace, and a signal that arrived while
+nothing was waiting is still there at the next wait.
 
-    // Wait for a condition, with a deadline. Without one, this waits forever — which is
-    // legitimate for a workflow, and a bug if you meant "give up after a while".
-    $this->environment->await(fn(): bool => $approved, Duration::hours(48));
-}
-```
+`#[AsUpdateMethod]` is the same shape, and its handler's return value goes back to the caller.
 
-`onUpdate()` is the same shape, and its handler's return value goes back to the caller.
+**Two traps, both silent:**
+
+- **The attribute goes on the class, never on an interface.** It is read with
+  `ReflectionClass::getMethods()`, and PHP does not surface an attribute declared on an
+  interface method through the class implementing it. On a contract interface it registers
+  nothing: the signal arrives, no handler runs, the condition never holds, and the execution
+  stays suspended.
+- **The handler takes one argument: the payload array.** The engine calls
+  `$handler($message['payload'])`. A signature like `approve(string $by)` raises
+  `TypeError: Argument #1 ($by) must be of type string, array given` when the signal is
+  delivered — not when the worker boots.
+
+A workflow written as a closure cannot carry an attribute, so it registers the same handler
+imperatively with `onSignal()` / `onUpdate()`; the dispatch is identical.
 
 ## Child workflows
 

@@ -1,6 +1,6 @@
 {
   "name": "durable",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Write Durable workflows, activities and Nexus operations in PHP: deterministic workflow bodies, activity contracts whose names come from attributes, and Nexus contracts that split in two when a workflow fulfils an operation.",
   "author": {
     "name": "Grégory Planchat",
