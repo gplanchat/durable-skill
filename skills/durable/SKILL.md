@@ -125,8 +125,9 @@ Read the one you need, not all three:
   or activity type name that changes, so runs in flight stop resolving, and a `catch` on
   `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` or `TimeoutFailure`, SDK
   failures with no Durable counterpart, which never matches after the migration. The
-  migration marks every such `catch` and every activity name it cannot carry over with a
-  `durable-rector:` comment. A workflow name gets no marker when the SDK attribute sits on
+  migration marks every reference to those four failures (a `catch`, a parameter or return
+  type included) and every activity name it cannot carry over with a `durable-rector:`
+  comment. A workflow name gets no marker when the SDK attribute sits on
   the class itself, when Rector cannot load the class, or when the class already carries
   `#[AsWorkflow]`, which keeps its name whatever the SDK type was: check those by hand.
 
