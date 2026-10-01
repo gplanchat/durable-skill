@@ -40,12 +40,14 @@ and every run in flight stops resolving. No error points at the rename.
 - **Activities.** The SDK's type is `prefix . (name ?? methodName)`, with no separator.
   Durable's is `AsActivity::$name . '.' . AsActivityMethod::$name` when the contract name is
   not empty, and the method name alone when it is. `ActivityContractAttributesRector` carries
-  over two prefixes: the empty one, and a single segment ending in a dot (`'Order.'`). It marks
-  every other prefix, including a multi-segment one such as `'Billing.Order.'`, which would carry
-  over but which the rule does not attempt. It changes no attribute and writes a
-  `durable-rector:` marker in two cases:
-  - the prefix is computed (a constant, a concatenation), does not end in a dot (`'Order'`), or
-    contains another dot (`'Billing.Order.'`): the marker goes above the interface;
+  over the empty prefix and any literal prefix ending in a dot with something before it:
+  `'Order.'` becomes `#[AsActivity(name: 'Order')]`, `'Billing.Order.'` becomes
+  `#[AsActivity(name: 'Billing.Order')]`, and for that prefix both engines name the activity
+  `Billing.Order.charge`. It changes no attribute and writes a `durable-rector:` marker in two
+  cases:
+  - the prefix is computed (a constant, a concatenation), does not end in a dot (`'Order'`: the
+    SDK type of `charge()` is `Ordercharge`), or is `'.'` alone (the SDK type is `.charge`, and
+    an empty contract name gives `charge`): the marker goes above the interface;
   - one method's `#[ActivityMethod(name:)]` is not a string literal: the whole contract stays as
     it is, and the marker goes above that method.
 
@@ -74,12 +76,18 @@ rule; every other `Workflow::` call is marked. It also marks the SDK options obj
 `LocalActivityOptions`), `Saga` and `Mutex`, and two more kinds of statement:
 
 - a reference to `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` or `TimeoutFailure`
-  (in a `catch`, a `new`, a `throw`, an `instanceof`, a static call or a `::class`). Durable has
-  no counterpart for these four, and PHP does not autoload the class named in a `catch`, so once
-  `temporal/sdk` is removed such a `catch` never matches and raises no error. A `catch` is marked
-  above its `try`; the `use` import is not marked. The other three SDK failures
-  (`ActivityFailure`, `ChildWorkflowFailure`, `CanceledFailure`) are renamed to their Durable
-  counterparts;
+  (in a `catch`, a `new`, a `throw`, an `instanceof`, a static call, a `::class`, a parameter
+  type or a return type). Durable has no counterpart for these four, and once `temporal/sdk` is
+  removed the reference no longer resolves. PHP does not autoload the class named in a `catch`,
+  so such a `catch` never matches and raises no error. A `catch` is marked above its `try`, a
+  parameter or return type above its method or function; the `use` import is not marked. Every
+  one of these references carries the same text:
+  `<Class> has no Durable counterpart — once temporal/sdk is removed this reference no longer resolves; decide by hand`.
+  A statement that already carries a `durable-rector:` comment gets no second one, so a marker
+  written by an earlier version of the rule keeps its old text
+  (`<Class> has no Durable counterpart — a catch on it never matches after migration; decide by hand`).
+  The other three SDK failures (`ActivityFailure`, `ChildWorkflowFailure`, `CanceledFailure`) are
+  renamed to their Durable counterparts;
 - a `Promise::` call that the execution-model rule does not rewrite: any method other than `all`,
   `any` and `some`, any of those three called with no argument, and `some()` called without a
   count.
@@ -128,9 +136,6 @@ These carry no `durable-rector:` comment after a run. Check them by hand:
   itself gets no `#[AsWorkflow]`. The rule also leaves a class untouched when Rector's reflection
   cannot load it. Without `#[AsWorkflow(name:)]`, Durable's
   workflow type is the class's short name (case 1).
-- **A parameter typed with one of the four SDK failures** with no Durable counterpart
-  (`ApplicationFailure`, `ServerFailure`, `TerminatedFailure`, `TimeoutFailure`). A `catch` on
-  them is marked (case 3); a parameter type is not.
 - **The `Temporal\Activity` facade** called from activity code (`Activity::getInfo()`,
   `Activity::heartbeat()`).
 - **The client side**: code that starts, signals or queries a workflow through the SDK client.
