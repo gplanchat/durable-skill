@@ -40,16 +40,15 @@ and every run in flight stops resolving. No error points at the rename.
 - **Activities.** The SDK's type is `prefix . (name ?? methodName)`, with no separator.
   Durable's is `AsActivity::$name . '.' . AsActivityMethod::$name`, and the dot is always
   inserted. The two agree only on an empty prefix and on a single segment ending in a dot
-  (`'Order.'`). `ActivityContractAttributesRector` leaves the whole contract untouched, **with no
-  marker**, when the prefix:
-  - is computed (a constant, a concatenation);
-  - does not end in a dot (`'Order'`);
-  - contains another dot (`'Billing.Order.'`);
-  - or when one method's `#[ActivityMethod(name:)]` is not a string literal.
+  (`'Order.'`). `ActivityContractAttributesRector` changes no attribute and writes a
+  `durable-rector:` marker in two cases:
+  - the prefix is computed (a constant, a concatenation), does not end in a dot (`'Order'`), or
+    contains another dot (`'Billing.Order.'`): the marker goes above the interface;
+  - one method's `#[ActivityMethod(name:)]` is not a string literal: the whole contract stays as
+    it is, and the marker goes above that method.
 
-  Find these afterwards with `grep -rn 'ActivityInterface' src/`: every hit still on an SDK
-  attribute is a contract that was not migrated. Choose the Durable names by hand so that
-  `contract.method` equals the old SDK type exactly.
+  For each of these markers, choose the Durable names by hand so that `contract.method` equals
+  the old SDK type exactly.
 
 ### 2. SDK attributes left in place
 
@@ -67,7 +66,18 @@ from an allow-list: seven facade methods (`newActivityStub`, `newChildWorkflowSt
 `awaitWithTimeout`, `timer`, `sideEffect`, `continueAsNew`) are rewritten by the execution-model
 rule; every other `Workflow::` call is marked. It also marks the SDK options objects
 (`ActivityOptions`, `RetryOptions`, `ChildWorkflowOptions`, `ContinueAsNewOptions`,
-`LocalActivityOptions`), `Saga` and `Mutex`.
+`LocalActivityOptions`), `Saga` and `Mutex`, and two more kinds of statement:
+
+- a reference to `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` or `TimeoutFailure`
+  (in a `catch`, a `new`, a `throw`, an `instanceof`, a static call or a `::class`). Durable has
+  no counterpart for these four, and PHP does not autoload the class named in a `catch`, so once
+  `temporal/sdk` is removed such a `catch` never matches and raises no error. A `catch` is marked
+  above its `try`; the `use` import is not marked. The other three SDK failures
+  (`ActivityFailure`, `ChildWorkflowFailure`, `CanceledFailure`) are renamed to their Durable
+  counterparts;
+- a `Promise::` call that the execution-model rule does not rewrite: any method other than `all`,
+  `any` and `some`, any of those three called with no argument, and `some()` called without a
+  count.
 
 ```bash
 grep -rn 'durable-rector:' src/
@@ -94,20 +104,28 @@ turn the second condition into a timeout. The rule rewrites `await($c)` and
 `awaitWithTimeout($t, $c)`, leaves every other arity as it is, and marks it
 (`more than one condition ... combine them by hand`). Combine the conditions into one closure.
 
-## What no rule detects
+## What the migration leaves unchanged without a marker
+
+These carry no `durable-rector:` comment after a run. Check them by hand:
 
 - **A plain iterator generator inside a workflow class.** In a class that implements an SDK
   `#[WorkflowInterface]` contract or calls the facade, every non-static method is de-yielded,
-  helpers included. A method that yields ordinary values is rewritten with the rest. Read every
-  method in a migrated workflow class that had a `yield` not followed by a facade call or a stub.
-- **SDK failures with no rename.** The set renames `ActivityFailure`, `ChildWorkflowFailure` and
-  `CanceledFailure`. `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` and
-  `TimeoutFailure` are left as they are. PHP does not autoload the class named in a `catch`, so
-  after `composer remove temporal/sdk` such a block no longer matches anything, and raises no
-  error. `grep -rn 'Temporal\\Exception' src/` finds them.
+  helpers included, so a method that yields ordinary values is rewritten with the rest. Read
+  every method in a migrated workflow class that had a `yield` not followed by a facade call or
+  a stub.
+- **A `\Generator` return type**, removed with nothing recording that it was there (case 4).
 - **A callable that is not a `\Closure`.** `Workflow::sideEffect([$this, 'compute'])` is
   rewritten as is; Durable takes a `\Closure`, so it throws a `TypeError` on first run. Grep for
   array and string callables before running the workflow.
+- **A workflow name the rule did not write.** `WorkflowClassAttributesRector` reads the SDK
+  attribute only on the interfaces a class implements: an SDK workflow attribute on the class
+  itself gets no `#[AsWorkflow]`. The rule also leaves a class untouched when Rector's reflection
+  cannot load it. Without `#[AsWorkflow(name:)]`, Durable's
+  workflow type is the class's short name (case 1).
+- **The `Temporal\Activity` facade** called from activity code (`Activity::getInfo()`,
+  `Activity::heartbeat()`).
+- **The client side**: code that starts, signals or queries a workflow through the SDK client.
+- **An interceptor**: no rule matches it.
 
 ## Moving between Durable versions
 
@@ -123,6 +141,5 @@ Hand back three lists:
 
 1. What Rector rewrote (the diff).
 2. What it marked: the output of `grep -rn 'durable-rector:' src/`, with a decision for each.
-3. What it could not see: the leftover `ActivityInterface` contracts from case 1, the return
-   types from case 4, the plain generators, the unrenamed `catch` blocks, the non-`\Closure`
-   callables, and the `UPGRADE.md` sections that apply.
+3. What it left unchanged without a marker: every item of the section above that applies,
+   and the `UPGRADE.md` sections between the two versions.

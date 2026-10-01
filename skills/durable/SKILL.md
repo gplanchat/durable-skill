@@ -124,7 +124,10 @@ Read the one you need, not all three:
   to guess. Two mistakes raise no error on a server that is already running: a workflow
   or activity type name that changes, so runs in flight stop resolving, and a `catch` on
   `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` or `TimeoutFailure`, SDK
-  failures with no Durable counterpart, which never matches after the migration.
+  failures with no Durable counterpart, which never matches after the migration. The
+  migration marks every such `catch` and every activity name it cannot carry over with a
+  `durable-rector:` comment. A workflow name gets no marker when the SDK attribute sits on
+  the class itself or when Rector cannot load the class: check those by hand.
 
 ## Before you hand the code back
 
