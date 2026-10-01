@@ -127,7 +127,8 @@ Read the one you need, not all three:
   failures with no Durable counterpart, which never matches after the migration. The
   migration marks every such `catch` and every activity name it cannot carry over with a
   `durable-rector:` comment. A workflow name gets no marker when the SDK attribute sits on
-  the class itself or when Rector cannot load the class: check those by hand.
+  the class itself, when Rector cannot load the class, or when the class already carries
+  `#[AsWorkflow]`, which keeps its name whatever the SDK type was: check those by hand.
 
 ## Before you hand the code back
 

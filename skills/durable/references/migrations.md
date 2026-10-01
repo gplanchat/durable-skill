@@ -38,22 +38,27 @@ and every run in flight stops resolving. No error points at the rename.
   Rector's reflection cannot load untouched, and keeps the name of a class that already has
   `#[AsWorkflow]`, both with no marker.
 - **Activities.** The SDK's type is `prefix . (name ?? methodName)`, with no separator.
-  Durable's is `AsActivity::$name . '.' . AsActivityMethod::$name`, and the dot is always
-  inserted. The two agree only on an empty prefix and on a single segment ending in a dot
-  (`'Order.'`). `ActivityContractAttributesRector` changes no attribute and writes a
+  Durable's is `AsActivity::$name . '.' . AsActivityMethod::$name` when the contract name is
+  not empty, and the method name alone when it is. `ActivityContractAttributesRector` carries
+  over two prefixes: the empty one, and a single segment ending in a dot (`'Order.'`). It marks
+  every other prefix, including a multi-segment one such as `'Billing.Order.'`, which would carry
+  over but which the rule does not attempt. It changes no attribute and writes a
   `durable-rector:` marker in two cases:
   - the prefix is computed (a constant, a concatenation), does not end in a dot (`'Order'`), or
     contains another dot (`'Billing.Order.'`): the marker goes above the interface;
   - one method's `#[ActivityMethod(name:)]` is not a string literal: the whole contract stays as
     it is, and the marker goes above that method.
 
-  For each of these markers, choose the Durable names by hand so that `contract.method` equals
-  the old SDK type exactly.
+  For each of these markers, choose the Durable names by hand so that the Durable name equals
+  the old SDK type exactly. An empty `#[AsActivity(name: '')]` with the full SDK type in
+  `#[AsActivityMethod(name:)]` reproduces any prefix: for a prefix `'Order'`, the SDK type of
+  `charge()` is `Ordercharge`, and `#[AsActivityMethod(name: 'Ordercharge')]` keeps it.
 
 ### 2. SDK attributes left in place
 
-On workflow interfaces, `WorkflowClassAttributesRector` copies `#[WorkflowInterface]` and the
-method attributes onto the implementing class, where Durable reads them, and leaves the SDK
+On workflow interfaces, `WorkflowClassAttributesRector` writes `#[AsWorkflow(name:)]`, derived
+from `#[WorkflowInterface]`, and copies the method attributes onto the implementing class, where
+Durable reads them. It leaves the SDK
 attributes on the interface. A rule cannot read an attribute another rule deleted in the same
 pass. Durable ignores them, so they cost nothing at run time. Remove them by hand once the migration
 runs; `composer remove temporal/sdk` is the step that forces that cleanup.
@@ -92,7 +97,8 @@ has no `$this`, so it has no environment to call.
 
 ### 4. Return types removed, never written
 
-A de-yielded method cannot keep `\Generator`, so the rule removes it, and removes it from the
+A de-yielded method cannot keep a generator return type (`\Generator`, `Traversable`,
+`iterable`), so the rule removes it, and removes it from the
 interface too. Nothing replaces it: what the method returns was never declared in the SDK code.
 Write each return type by hand; the contract's docblock usually says what it is.
 
@@ -113,7 +119,7 @@ These carry no `durable-rector:` comment after a run. Check them by hand:
   helpers included, so a method that yields ordinary values is rewritten with the rest. Read
   every method in a migrated workflow class that had a `yield` not followed by a facade call or
   a stub.
-- **A `\Generator` return type**, removed with nothing recording that it was there (case 4).
+- **A generator return type** (`\Generator`, `Traversable`, `iterable`), removed with nothing recording that it was there (case 4).
 - **A callable that is not a `\Closure`.** `Workflow::sideEffect([$this, 'compute'])` is
   rewritten as is; Durable takes a `\Closure`, so it throws a `TypeError` on first run. Grep for
   array and string callables before running the workflow.
@@ -122,6 +128,9 @@ These carry no `durable-rector:` comment after a run. Check them by hand:
   itself gets no `#[AsWorkflow]`. The rule also leaves a class untouched when Rector's reflection
   cannot load it. Without `#[AsWorkflow(name:)]`, Durable's
   workflow type is the class's short name (case 1).
+- **A parameter typed with one of the four SDK failures** with no Durable counterpart
+  (`ApplicationFailure`, `ServerFailure`, `TerminatedFailure`, `TimeoutFailure`). A `catch` on
+  them is marked (case 3); a parameter type is not.
 - **The `Temporal\Activity` facade** called from activity code (`Activity::getInfo()`,
   `Activity::heartbeat()`).
 - **The client side**: code that starts, signals or queries a workflow through the SDK client.
