@@ -121,7 +121,14 @@ Read the one you need, not all three:
 - `references/migrations.md` — **read this before touching existing code.** Coming off
   the Temporal PHP SDK, or moving from one Durable version to the next: `gplanchat/durable-rector`
   does the rewriting, and the reference is mostly about the five things its rules refuse
-  to guess — two of which fail silently, on a server that is already running.
+  to guess. Two mistakes raise no error on a server that is already running: a workflow
+  or activity type name that changes, so runs in flight stop resolving, and a `catch` on
+  `ApplicationFailure`, `ServerFailure`, `TerminatedFailure` or `TimeoutFailure`, SDK
+  failures with no Durable counterpart, which never matches after the migration. The
+  migration marks every such `catch` and every activity name it cannot carry over with a
+  `durable-rector:` comment. A workflow name gets no marker when the SDK attribute sits on
+  the class itself, when Rector cannot load the class, or when the class already carries
+  `#[AsWorkflow]`, which keeps its name whatever the SDK type was: check those by hand.
 
 ## Before you hand the code back
 
